@@ -1,0 +1,33 @@
+# COMP5801 RAG Retrieval Comparison Project
+# CPU-only design - no GPU required
+
+# Core ML/NLP
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Dense retrieval (sentence embeddings)
+sentence-transformers>=2.2.0
+
+# Sparse retrieval (BM25)
+rank-bm25>=0.2.2
+
+# Dataset loading
+datasets>=2.14.0
+huggingface-hub>=0.17.0
+ir-datasets>=0.5.0
+
+# Tokenization for chunk size experiments
+transformers>=4.30.0
+tokenizers>=0.13.0
+
+# Evaluation metrics (implemented in src/evaluation.py)
+
+# Utilities
+tqdm>=4.65.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Optional: for reproducibility
+torch>=2.0.0
+# Note: PyTorch CPU-only: pip install torch --index-url https://download.pytorch.org/whl/cpu

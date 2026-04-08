@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "run_id": "20260328_191443",
+    "dataset": "nfcorpus",
+    "method": "sparse",
+    "chunk_size": "chunk_256",
+    "max_queries": 200,
+    "n_docs": 5366,
+    "n_queries": 200,
+    "top_k": 100,
+    "eval_top_k": [
+      1,
+      5,
+      10,
+      100
+    ],
+    "retrieval_time_seconds": 0.573,
+    "config_elapsed_seconds": 0.593
+  },
+  "metrics": {
+    "n_queries": 200,
+    "MRR": 0.552607499441853,
+    "Recall@1": 0.05974222797447677,
+    "NDCG@1": 0.465,
+    "Recall@5": 0.12160228213861222,
+    "NDCG@5": 0.39856827921372173,
+    "Recall@10": 0.14463034160204832,
+    "NDCG@10": 0.35618902253434004,
+    "Recall@100": 0.20910667266455132,
+    "NDCG@100": 0.27226515709005655
+  }
+}

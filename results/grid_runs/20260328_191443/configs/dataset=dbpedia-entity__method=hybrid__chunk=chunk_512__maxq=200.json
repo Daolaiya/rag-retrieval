@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "run_id": "20260328_191443",
+    "dataset": "dbpedia-entity",
+    "method": "hybrid",
+    "chunk_size": "chunk_512",
+    "max_queries": 200,
+    "n_docs": 4636181,
+    "n_queries": 200,
+    "top_k": 100,
+    "eval_top_k": [
+      1,
+      5,
+      10,
+      100
+    ],
+    "retrieval_time_seconds": 12424.51,
+    "config_elapsed_seconds": 12432.861
+  },
+  "metrics": {
+    "n_queries": 200,
+    "MRR": 0.8255496586746588,
+    "Recall@1": 0.008258263087736964,
+    "NDCG@1": 0.30333333333333357,
+    "Recall@5": 0.03534976360275548,
+    "NDCG@5": 0.26717486887575675,
+    "Recall@10": 0.059853929216950895,
+    "NDCG@10": 0.2616464407706397,
+    "Recall@100": 0.24300366688179698,
+    "NDCG@100": 0.3228812943471592
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "run_id": "20260406_235803",
+  "datasets": [
+    "nfcorpus",
+    "fiqa",
+    "scifact",
+    "arguana",
+    "dbpedia-entity"
+  ],
+  "methods": [
+    "dense",
+    "sparse",
+    "hybrid"
+  ],
+  "chunk_sizes": [
+    "original",
+    "chunk_128",
+    "chunk_256",
+    "chunk_512"
+  ],
+  "max_queries": 200,
+  "configs_total": 60,
+  "configs_completed": 60,
+  "configs_failed": 0,
+  "output_dir": "/home/rapids/project/results/grid_runs/20260406_235803",
+  "device": "cuda",
+  "batch_size": 128
+}

@@ -1,0 +1,235 @@
+% COMP5801 Final Report
+% Option A: Empirical Evaluation
+% RAG Retrieval Strategy Comparison
+% Format: JMLR, max 8 pages (excluding references)
+
+\documentclass[twoside, 11pt]{article}
+\usepackage[preprint]{jmlr2e}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=false,
+  pdfborder={0 0 0},
+  linkbordercolor={1 0 0},
+  citebordercolor={1 1 1},
+  urlbordercolor={1 1 1},
+  filebordercolor={1 1 1},
+  menubordercolor={1 1 1},
+  runbordercolor={1 1 1},
+  breaklinks=true
+}
+\newcommand{\figref}[1]{\hyperref[#1]{\fcolorbox{red}{white}{Figure~\ref*{#1}}}}
+\newcommand{\tabref}[1]{\hyperref[#1]{\fcolorbox{red}{white}{Table~\ref*{#1}}}}
+
+\jmlrheading{1}{2026}{1-8}{3/26}{}{}{Damilola Olaiya}
+\ShortHeadings{RAG Retrieval Comparison}{Damilola Olaiya}
+\firstpageno{1}
+
+\begin{document}
+
+\title{Empirical Evaluation of Retrieval Strategies in Retrieval-Augmented Generation}
+
+\author{\name Damilola Olaiya \email damilolaolaiya@cmail.carleton.ca \\
+\addr Data Science, Analytics and Artificial Intelligence\\
+Carleton University\\
+Ottawa, ON, Canada}
+
+\maketitle
+
+\begin{abstract}
+Retrieval-Augmented Generation (RAG) augments large language models with external knowledge by retrieving relevant passages before generation. The retrieval strategy---dense, sparse, or hybrid---strongly affects downstream grounding quality. I empirically compare these strategies on five BEIR datasets (nfcorpus, fiqa, scifact, arguana, dbpedia-entity), with chunk granularity variation (original, 128, 256, 512). I run two full grids that differ by dense encoder backbone (all-MiniLM-L6-v2 vs all-mpnet-base-v2) and compare retrieval metrics (MRR, Recall@k, NDCG@k). Hybrid retrieval via Reciprocal Rank Fusion is the strongest overall performer. Across these runs, dense-encoder swapping has negligible effect on aggregate retrieval quality, while chunk size and retrieval-family choice remain the dominant factors. The code is available \href{https://github.com/Daolaiya/rag-retrieval}{\textcolor{blue}{here on GitHub}}.
+\end{abstract}
+
+\begin{keywords}
+retrieval-augmented generation, dense retrieval, sparse retrieval, BM25, hybrid retrieval, chunk size, BEIR benchmark
+\end{keywords}
+
+\section{Introduction}
+\subsection{Problem Statement}
+Retrieval-Augmented Generation (RAG) augments large language models (LLMs) with external knowledge by retrieving relevant passages before generation \citep{lewis2020rag}. Given a user query, a RAG system first retrieves passages from a corpus, then conditions the LLM on those passages to produce a grounded answer. This paradigm reduces hallucination and enables knowledge-grounded question answering without retraining the model.
+
+The retrieval stage is often the critical bottleneck: if retrieval fails to surface relevant passages, the LLM receives irrelevant context and produces degraded or incorrect answers. Despite widespread adoption, there is limited systematic comparison of how different retrieval approaches perform under varying conditions---domain, corpus size, query type, and document granularity. Practitioners lack clear guidance on which strategy to select for a given use case.
+
+\subsection{Importance of the Problem}
+RAG is deployed in enterprise knowledge bases, customer support systems, and research assistants. Suboptimal retrieval leads to poor user experience, factual errors, and wasted compute. Understanding the relative strengths of dense retrieval (semantic matching via learned embeddings), sparse retrieval (lexical matching via BM25), and hybrid approaches is essential for building effective RAG systems. Furthermore, the optimal retrieval method often shifts depending on the length and granularity of retrieved chunks---short sentences versus full paragraphs---a dimension I explicitly analyze.
+
+\section{Techniques to Tackle the Problem}
+\subsection{Review of Previous Work}
+\textbf{Dense retrieval} encodes queries and passages into a shared vector space and retrieves via approximate nearest-neighbor search. \citet{karpukhin2020dense} introduced Dense Passage Retrieval (DPR), demonstrating that learned dual-encoders outperform sparse methods on open-domain QA. \citet{lewis2020rag} combined DPR with a generative model in the RAG architecture. \citet{izacard2021leveraging} extended this with FiD (Fusion-in-Decoder). \citet{guu2020realm} pre-trained retrieval-augmented language models. Dense retrieval excels at semantic matching but can underperform on lexical or domain-specific terminology.
+
+\textbf{Sparse retrieval} relies on term frequency and inverse document frequency. BM25 \citep{robertson2009probabilistic} remains a strong baseline, especially for keyword-heavy queries and when training data for dense models is limited. It requires no neural components and runs efficiently on CPU.
+
+\textbf{Hybrid retrieval} combines dense and sparse methods. Reciprocal Rank Fusion (RRF) merges ranked lists without score calibration. \citet{gao2022rag} survey RAG for LLMs and note that hybrid approaches often improve robustness. \citet{khattab2020colbert} propose late-interaction retrieval (ColBERT), which I do not implement in this project due to time and compute/resource constraints but discuss as potential future work.
+
+\textbf{Benchmarks.} \citet{thakur2021beir} introduce BEIR, a heterogeneous benchmark for zero-shot retrieval evaluation across 18 datasets. I use nfcorpus (biomedical) and scifact (scientific claims) for CPU-friendly experimentation.
+
+\subsection{Techniques Chosen and Rationale}
+I implement and compare three retrieval strategies:
+
+\textbf{(1) Dense retrieval} using sentence-transformers \citep{reimers2019sentencebert}. I evaluate two encoder backbones in separate full-grid runs: all-MiniLM-L6-v2 and all-mpnet-base-v2. Documents and queries are encoded into dense vectors; retrieval uses cosine similarity.
+
+\textbf{(2) Sparse retrieval} using BM25 with standard parameters ($k_1 = 1.5$, $b = 0.75$). Tokenization is word-based. No learned components; purely lexical.
+
+\textbf{(3) Hybrid retrieval} via Reciprocal Rank Fusion of dense and sparse results. For each document $d$ appearing in ranked lists $L_1, L_2$, the RRF score is
+$$
+\text{score}(d) = \sum_{i} \frac{1}{k + \text{rank}_i(d)}
+$$
+with $k = 60$. This combines semantic and lexical signals without score calibration.
+
+\textbf{Chunk size variation.} To gauge the shifts in optimal retrieval shifts with chunk granularity, I vary chunk sizes: original documents, 128-token chunks, 256-token chunks, and 512-token chunks.
+
+\section{Empirical Evaluation}
+\subsection{Experimental Setup}
+\textbf{Datasets.} I use BEIR benchmarks via ir\_datasets: \textit{nfcorpus}, \textit{fiqa}, \textit{scifact}, \textit{arguana}, and \textit{dbpedia-entity}. For each dataset, I cap evaluation at 200 queries to keep the full grid tractable.
+
+\textbf{Metrics.} I report Recall@$k$ ($k \in \{1, 5, 10, 100\}$), MRR, and NDCG@$k$. Let $R_q$ denote relevant documents for query $q$, $T_k(q)$ the top-$k$ retrieved set, and $\text{rank}_q$ the rank of the first relevant item. Then:
+\[
+\text{Recall@}k = \frac{|R_q \cap T_k(q)|}{|R_q|}, \quad
+\text{MRR} = \frac{1}{|Q|}\sum_{q \in Q}\frac{1}{\text{rank}_q},
+\]
+and NDCG@$k$ is DCG@$k$/IDCG@$k$.
+
+\textbf{Implementation.} I used Python with sentence-transformers, rank-bm25, and ir-datasets. Retrieval depth is fixed at top-$K=100$; metrics are computed at $k=\{1,5,10,100\}$. I compare two completed full-grid runs: MiniLM (run ID 20260328\_191443) and MPNet (run ID 20260406\_235803).
+
+\subsection{Results: Method Comparison}
+\tabref{tab:nfcorpus} and \tabref{tab:scifact} summarize results on nfcorpus and scifact with original (unchunked) documents from run 20260328\_191443.
+
+\begin{table}[htbp]
+\centering
+\caption{Retrieval performance on nfcorpus (original documents).}
+\label{tab:nfcorpus}
+\begin{tabular}{lcccccc}
+\toprule
+Method & MRR & R@1 & R@5 & R@10 & NDCG@10 & Time (s) \\
+\midrule
+Dense  & 0.544 & 0.051 & 0.124 & 0.160 & 0.345 & 22.9 \\
+Sparse & 0.559 & \textbf{0.069} & 0.134 & 0.167 & 0.349 & \textbf{0.4} \\
+Hybrid & \textbf{0.591} & 0.066 & \textbf{0.144} & \textbf{0.171} & \textbf{0.373} & 24.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Retrieval performance on scifact (original documents).}
+\label{tab:scifact}
+\begin{tabular}{lcccccc}
+\toprule
+Method & MRR & R@1 & R@5 & R@10 & NDCG@10 & Time (s) \\
+\midrule
+Dense  & 0.606 & 0.476 & 0.731 & 0.772 & 0.637 & 32.5 \\
+Sparse & 0.652 & 0.532 & 0.751 & 0.798 & 0.677 & \textbf{2.1} \\
+Hybrid & \textbf{0.676} & \textbf{0.544} & \textbf{0.777} & \textbf{0.828} & \textbf{0.703} & 35.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Findings.} Hybrid retrieval achieves the strongest overall retrieval quality on both datasets. On nfcorpus, hybrid MRR is 0.591 (vs.\ 0.559 sparse, 0.544 dense). On scifact, hybrid MRR is 0.676 (vs.\ 0.652 sparse, 0.606 dense). Sparse remains the fastest on this CPU-style run.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\linewidth]{figures/20260406_235803/original_method_mrr.pdf}
+\caption{MRR by retrieval method and dataset (original documents, run 20260406\_235803).}
+\label{fig:original_mrr}
+\end{figure}
+
+\figref{fig:original_mrr} visually confirms the method-comparison trend used in my main tables: hybrid is the most consistent top performer across datasets, while dense and sparse trade places by domain.
+
+\subsection{Results: Chunk Size and Granularity}
+\tabref{tab:chunk} shows how chunk size affects performance on nfcorpus (run 20260328\_191443).
+
+\begin{table}[htbp]
+\centering
+\caption{Effect of chunk size on nfcorpus.}
+\label{tab:chunk}
+\begin{tabular}{llcccc}
+\toprule
+Method & Chunk & MRR & R@5 & R@10 & NDCG@10 \\
+\midrule
+\multirow{4}{*}{Dense}  & original & \textbf{0.544} & \textbf{0.124} & 0.160 & 0.345 \\
+                        & 128 tok  & 0.539 & 0.083 & 0.116 & \textbf{0.380} \\
+                        & 256 tok  & 0.533 & 0.098 & 0.138 & 0.349 \\
+                        & 512 tok  & 0.540 & 0.119 & \textbf{0.166} & 0.343 \\
+\midrule
+\multirow{4}{*}{Sparse} & original & 0.559 & 0.134 & 0.167 & 0.349 \\
+                        & 128 tok  & 0.545 & 0.097 & 0.115 & \textbf{0.366} \\
+                        & 256 tok  & 0.553 & 0.122 & 0.145 & 0.356 \\
+                        & 512 tok  & \textbf{0.569} & \textbf{0.138} & \textbf{0.167} & 0.354 \\
+\midrule
+\multirow{4}{*}{Hybrid} & original & 0.591 & \textbf{0.144} & \textbf{0.171} & 0.373 \\
+                        & 128 tok  & 0.576 & 0.103 & 0.130 & \textbf{0.405} \\
+                        & 256 tok  & 0.579 & 0.125 & 0.149 & 0.377 \\
+                        & 512 tok  & \textbf{0.601} & 0.143 & 0.166 & 0.372 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Findings.} Chunk effects are method-dependent. For dense retrieval, original and 512-token chunks are close in MRR, while 128-token chunks improve NDCG@10. For sparse retrieval, 512-token chunks yield the best MRR. Hybrid remains strongest overall; 512-token chunks give the top hybrid MRR (0.601), while original is best on Recall@10.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/20260406_235803/chunk_impact_nfcorpus.pdf}
+\caption{Chunk-size impact on nfcorpus for MRR, Recall@10, and NDCG@10 (run 20260406\_235803).}
+\label{fig:chunk_nfcorpus}
+\end{figure}
+
+\figref{fig:chunk_nfcorpus} illustrates the granularity sensitivity discussed in \tabref{tab:chunk}: method rankings and absolute scores vary with chunking choice.
+
+\subsection{Results: MiniLM vs MPNet Comparison}
+\tabref{tab:embed_compare} compares aggregate quality metrics between the two completed full-grid runs, averaged across all datasets and chunk settings for each retrieval method.
+
+\begin{table}[htbp]
+\centering
+\caption{Embedding model comparison across all datasets/chunks.}
+\label{tab:embed_compare}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+Method & MiniLM MRR & MPNet MRR & MiniLM R@10 & MPNet R@10 & MiniLM NDCG@10 & MPNet NDCG@10 \\
+\midrule
+Dense  & \textbf{0.51067} & 0.51059 & 0.39367 & 0.39367 & \textbf{0.37370} & 0.37369 \\
+Sparse & \textbf{0.48840} & 0.48836 & \textbf{0.33963} & 0.33963 & \textbf{0.32335} & 0.32334 \\
+Hybrid & 0.53337 & \textbf{0.53347} & \textbf{0.38356} & 0.38355 & 0.37583 & \textbf{0.37585} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\textbf{Findings.} Aggregate differences between MiniLM and MPNet are negligible in this experimental setup (typically around $10^{-4}$). The dominant gains come from retrieval-family choice (hybrid vs single-family) and chunking configuration rather than encoder swap alone.
+Because the two runs were executed in different hardware environments, I use this section for quality-metric comparison only and avoid cross-run latency claims.
+Future work could explicitly log the active dense model in per-run metadata to strengthen provenance and reproducibility.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\linewidth]{figures/20260406_235803/heatmap_mrr.pdf}
+\caption{MRR heatmap (dataset $\times$ method) aggregated across chunk settings (run 20260406\_235803).}
+\label{fig:heatmap_mrr}
+\end{figure}
+
+\figref{fig:heatmap_mrr} provides a compact cross-dataset summary and supports the conclusion that retrieval-family choice (especially hybrid vs single-family) has larger practical impact than swapping between the two dense backbones in this setup.
+
+\subsection{Complexity and Ease of Use}
+\textbf{Computational complexity.} Sparse retrieval uses lexical indexing and ranking; dense retrieval adds neural embedding computation and vector similarity search. Hybrid adds rank-fusion overhead on top of both retrieval passes.
+
+\textbf{Ease of use.} Sparse retrieval has minimal dependencies and is easiest to deploy. Dense retrieval requires model loading and embedding infrastructure. Hybrid adds little implementation complexity beyond running both and fusing ranks.
+
+\section{Conclusion}
+\subsection{Best Technique}
+Hybrid retrieval via Reciprocal Rank Fusion consistently outperforms dense-only and sparse-only baselines on key datasets in this study. On original-document runs, hybrid reaches MRR 0.591 on nfcorpus (vs.\ 0.559 sparse, 0.544 dense) and 0.676 on scifact (vs.\ 0.652 sparse, 0.606 dense). For practitioners, hybrid is the strongest default when both dense and sparse components are available.
+
+\subsection{Is the Problem Solved?}
+No. Retrieval remains a bottleneck. Even under the best settings here, many relevant items are still missed and performance varies by dataset and chunk configuration. Domain shift, long documents, and multi-hop reasoning remain challenging. Chunk size and granularity should be tuned per application.
+
+\subsection{Future Research}
+For future research work, I could look into: (1) end-to-end evaluation with an LLM to measure answer quality, not only retrieval proxies; (2) larger benchmarks (e.g., MS MARCO, NQ) and broader domain diversity; (3) inclusion of late-interaction and learned sparse methods (e.g., ColBERT, SPLADE) under matched hardware budgets; (4) learned chunking strategies that adapt granularity to query type; (5) ablations on max\_queries, retrieval top-$K$, and RRF constant to quantify stability; and (6) structured failure-mode analysis for hybrid misses.
+
+% \acks{No external funding. No competing interests.}
+
+\bibliography{report}
+
+\end{document}

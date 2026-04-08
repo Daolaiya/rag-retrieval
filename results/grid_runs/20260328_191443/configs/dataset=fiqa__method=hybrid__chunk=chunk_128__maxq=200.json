@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "run_id": "20260328_191443",
+    "dataset": "fiqa",
+    "method": "hybrid",
+    "chunk_size": "chunk_128",
+    "max_queries": 200,
+    "n_docs": 90805,
+    "n_queries": 200,
+    "top_k": 100,
+    "eval_top_k": [
+      1,
+      5,
+      10,
+      100
+    ],
+    "retrieval_time_seconds": 335.42,
+    "config_elapsed_seconds": 336.232
+  },
+  "metrics": {
+    "n_queries": 200,
+    "MRR": 0.3559563834896678,
+    "Recall@1": 0.07931930079724196,
+    "NDCG@1": 0.27,
+    "Recall@5": 0.17152888002520356,
+    "NDCG@5": 0.21451591061711978,
+    "Recall@10": 0.2384412891030538,
+    "NDCG@10": 0.2260536342119193,
+    "Recall@100": 0.48188582332699964,
+    "NDCG@100": 0.2984935360112792
+  }
+}
