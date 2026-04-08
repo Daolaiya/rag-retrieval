@@ -1,5 +1,8 @@
 venv/
-data/
+/data/
 notebooks/
 .ipynb_checkpoints/
 __pycache__/
+SCRIPTS_INVENTORY.md
+full_chat_transcript.md
+full_chat_transcript.pdf
