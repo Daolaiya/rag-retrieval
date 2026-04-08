@@ -1,17 +1,12 @@
 # COMP5801 RAG Retrieval Comparison Project
+**Option A: Empirical Evaluation** — I compare dense, sparse, and hybrid retrieval for RAG-style setups and look at how chunk size / granularity changes metrics.
 
-**Option A: Empirical Evaluation** — Systematic comparison of retrieval strategies (dense, sparse, hybrid) in Retrieval-Augmented Generation, with analysis of chunk size and granularity effects.
+Everything runs on **CPU** (no GPU assumed).
 
-**Designed for CPU-only execution** — No GPU required.
-
-**Note:** This is the project root folder. Run all commands from this directory.
-
----
+Run commands from this folder (`project/`).
 
 ## Environment Setup
-
 ### 1. Create Virtual Environment (Recommended)
-
 ```bash
 python -m venv venv
 # Windows:
@@ -21,115 +16,129 @@ source venv/bin/activate
 ```
 
 ### 2. Install PyTorch (CPU-only)
-
-For CPU-only (no GPU):
-
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
 ### 3. Install Dependencies
-
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 4. Verify Installation
-
 ```bash
 python -c "import sentence_transformers; import rank_bm25; import datasets; print('OK')"
 ```
 
----
-
 ## Folder Structure
-
 ```
 project/
-├── README.md                 # This file
+├── README.md                # This file
 ├── requirements.txt         # Python dependencies
 │
 ├── report/                  # LaTeX report (Final Report)
 │   ├── report.tex           # Main report source
 │   ├── report.bib           # Bibliography
-│   └── jmlr2e.sty          # JMLR style (copy from project root if needed)
+│   └── jmlr2e.sty           # JMLR style (copy from project root if needed)
 │
 ├── src/                     # Source code
 │   ├── __init__.py
-│   ├── config.py            # Configuration constants
+│   ├── config.py            # Defaults (dense model for run_experiments / run_all)
 │   ├── data/
 │   │   ├── __init__.py
-│   │   └── dataset_loader.py # Dataset loading (BEIR/HuggingFace)
+│   │   └── dataset_loader.py # BEIR / HuggingFace loading
 │   ├── retrieval/
 │   │   ├── __init__.py
-│   │   ├── dense.py         # Dense retrieval (sentence-transformers)
-│   │   ├── sparse.py        # Sparse retrieval (BM25)
-│   │   └── hybrid.py        # Hybrid retrieval (RRF fusion)
-│   ├── evaluation.py        # Metrics: Recall@k, MRR, NDCG
-│   └── run_experiments.py   # Main experiment runner
+│   │   ├── dense.py         # Dense (sentence-transformers)
+│   │   ├── sparse.py        # BM25
+│   │   └── hybrid.py        # RRF hybrid
+│   ├── evaluation.py        # Recall@k, MRR, NDCG
+│   └── run_experiments.py   # One dataset at a time (run_all calls this)
 │
-├── experiments/             # Experiment scripts
-│   ├── run_all.py          # Run fixed suite (selected datasets)
-│   └── run_grid.py         # Run full Cartesian grid with timestamped outputs
-├── scripts/                 # Utility scripts
+├── experiments/
+│   ├── run_grid.py          # Full grid — main run
+│   ├── run_all.py           # Shorter fixed suite → metrics + full_summary.json
+│   ├── run_compare.py       # Compare two grid runs
+│   └── report_tables.ipynb  # Optional: check numbers against the report
+│
+├── scripts/
 │   ├── generate_figures.py        # Plots from results/metrics/*_summary.json
-│   └── generate_figures_grid.py   # Comprehensive plots from one grid run
+│   └── generate_figures_grid.py   # Plots from a grid run’s aggregate/summary.json
 │
-├── data/                    # Downloaded datasets (auto-created)
+├── data/                    # Downloaded datasets (created when you run)
 │   └── .gitkeep
 │
-├── results/                 # Experiment outputs (auto-created)
-│   ├── metrics/             # JSON/CSV results
-│   └── figures/             # Plots
+├── results/
+│   ├── metrics/             # Summaries from run_experiments / run_all
+│   ├── grid_runs/           # Timestamped grid outputs from run_grid.py
+│   └── comparisons/         # Output from run_compare.py
 │
-└── notebooks/               # Optional Jupyter notebooks
+└── notebooks/
     └── .gitkeep
 ```
 
----
-
 ## How to Run
-
-### Quick Start (Single Dataset, Default Config)
-
-```bash
-python -m src.run_experiments --dataset nfcorpus --max_queries 100
-```
-
-### Full Experiment Suite
-
-```bash
-python experiments/run_all.py
-```
-
-This runs:
-- Dense retrieval (all-MiniLM-L6-v2)
-- Sparse retrieval (BM25)
-- Hybrid retrieval (RRF)
-- Chunk size variation (128, 256, 512 tokens)
-- On nfcorpus and fiqa datasets (CPU-friendly sizes)
-
-### Comprehensive Grid Run (CPU)
-
+### Primary: full grid (`run_grid.py`)
+For the report I rely on a **full grid** over datasets, methods, and chunk settings:
 ```bash
 python experiments/run_grid.py
 ```
 
-This command works with no extra arguments. Defaults are:
-- Datasets: all values in `src/config.py` (`AVAILABLE_DATASETS`)
-- Methods: dense, sparse, hybrid
-- Chunk sizes: original (no chunking) + all values in `CHUNK_SIZES`
-- `max_queries`: 200
-- Output root: `results/grid_runs/<timestamp>/`
+No flags needed. By default it uses everything in `src/config.py` (`AVAILABLE_DATASETS`), methods `dense` / `sparse` / `hybrid`, chunk sizes in `CHUNK_SIZES` plus an **original** (no chunking) run, and `max_queries=200`. Each run goes to `results/grid_runs/<timestamp>/` with `aggregate/summary.json`, `summary.csv`, and per-config JSON under `configs/`.
 
-Example with overrides:
+Override example:
 
 ```bash
 python experiments/run_grid.py --datasets nfcorpus scifact --methods sparse hybrid --chunk_sizes 128 256 --max_queries 300
 ```
 
-### Custom Run
+### Quick: single dataset (`run_experiments`)
+Good for debugging or a fast check:
+```bash
+python -m src.run_experiments --dataset nfcorpus --max_queries 100
+```
 
+### Smaller suite (`run_all.py`)
+`run_all.py` calls `run_experiments` on a smaller fixed list of datasets and then builds `results/full_summary.json`. Faster than the full grid; it’s not the same thing as the main BEIR grid above.
+
+```bash
+python experiments/run_all.py
+```
+
+### Compare two grid runs (`run_compare.py`)
+After I have two full grids (e.g. two dense encoders), I compare them with:
+```bash
+python experiments/run_compare.py
+```
+
+With no flags it reads `RUN_A_ID` and `RUN_B_ID` from the top of `run_compare.py` and writes CSVs under `results/comparisons/<RUN_A_ID>_vs_<RUN_B_ID>/`. If the second run isn’t there yet, the script can fabricate a placeholder folder for testing the pipeline—don’t use that for real numbers.
+
+### Figures
+Plots from `run_experiments` / `run_all` outputs:
+```bash
+python scripts/generate_figures.py
+```
+
+→ `results/metrics/figures/`
+
+Plots from one grid run:
+```bash
+python scripts/generate_figures_grid.py
+```
+
+Defaults to `PREFERRED_RUN_ID` at the top of `generate_figures_grid.py`; if that folder isn’t there it falls back to the latest valid run under `results/grid_runs/`. Output: `results/grid_runs/<run_id>/figures/`.
+
+### Manual tweaks (embedding + which run to use)
+I didn’t wire everything through argparse. To switch the dense model or point scripts at a specific grid folder, edit the constants near the tops of these files:
+
+| Goal | File |
+|------|------|
+| Dense model for **`run_grid.py`** (MiniLM vs MPNet, etc.) | `experiments/run_grid.py` — `DEFAULT_DENSE_MODEL` (comment/uncomment as marked). This overrides the grid run separately from `config.py`. |
+| Dense model for **`run_experiments` / `run_all`** | `src/config.py` — `DEFAULT_DENSE_MODEL` |
+| Which grid run to plot | `scripts/generate_figures_grid.py` — `PREFERRED_RUN_ID` |
+| Which two grids to compare | `experiments/run_compare.py` — `RUN_A_ID`, `RUN_B_ID` |
+
+### Custom `run_experiments` example
 ```bash
 python -m src.run_experiments \
   --dataset nfcorpus \
@@ -139,26 +148,18 @@ python -m src.run_experiments \
   --output_dir results
 ```
 
----
-
 ## Output
-
-- **results/metrics/** — per-dataset summary JSON from `src/run_experiments.py` / `run_all.py`
-- **results/figures/** — Comparison plots
-- **results/full_summary.json** — aggregated results from `experiments/run_all.py`
-- **results/grid_runs/<timestamp>/** — full-grid outputs from `experiments/run_grid.py`:
-  - `configs/*.json` (one JSON per dataset/method/chunk/maxq config)
-  - `aggregate/summary.json`
-  - `aggregate/summary.csv`
-  - `aggregate/errors.json`
-  - `aggregate/run_metadata.json`
-
----
+| Path | From |
+|------|------|
+| `results/metrics/*_summary.json` | `src/run_experiments.py`, `experiments/run_all.py` |
+| `results/metrics/figures/` | `scripts/generate_figures.py` |
+| `results/full_summary.json` | `experiments/run_all.py` |
+| `results/grid_runs/<timestamp>/` | `experiments/run_grid.py` |
+| `results/grid_runs/<timestamp>/figures/` | `scripts/generate_figures_grid.py` |
+| `results/comparisons/<A>_vs_<B>/` | `experiments/run_compare.py` |
 
 ## Report
-
-The final report is in `report/report.tex`. Compile:
-
+Source is `report/report.tex`. Local build:
 ```bash
 cd report
 pdflatex report
@@ -167,37 +168,26 @@ pdflatex report
 pdflatex report
 ```
 
-Or use Overleaf: upload `report.tex`, `report.bib`, and `jmlr2e.sty` (copy from project root if needed).
-
-**Before submitting:** Replace "Author Name" and "author@carleton.ca" in `report.tex`.
-
----
+I used Overleaf for the PDF: upload `report.tex`, `report.bib`, and `jmlr2e.sty` (copy `jmlr2e.sty` from the project root if needed).
 
 ## Dataset Notes
+- **nfcorpus**: ~3.6k docs, ~323 queries — quick on CPU
+- **fiqa**: ~57k docs, ~648 queries — heavier
+- **scifact**: ~5k docs, ~300 queries — small
 
-- **nfcorpus**: ~3.6k docs, ~323 queries — fast on CPU
-- **fiqa**: ~57k docs, ~648 queries — moderate
-- **scifact**: ~5k docs, ~300 queries — small, fast
+If you try huge BEIR sets, lower `--max_queries` while testing.
 
-Larger datasets (MS MARCO, NQ) will be slower on CPU; reduce `--max_queries` for testing.
-
----
-
-## CPU-Only Design Choices
-
-| Component | Choice | Reason |
-|-----------|---------|--------|
-| Embedding model | all-MiniLM-L6-v2 | Small (~80MB), fast on CPU |
-| Dataset size | nfcorpus, fiqa, scifact | Smaller BEIR datasets |
-| Batch size | 32 | Conservative for CPU memory |
-| LLM | Not included | Optional; use API for E2E eval |
-| ColBERT | Not included | GPU-heavy; dense+BM25+hybrid sufficient |
-
----
+## Design Choices (CPU)
+| Piece | What I used | Why |
+|-------|-------------|-----|
+| Embeddings | Default MiniLM; second full grid with MPNet if I change `DEFAULT_DENSE_MODEL` in `run_grid.py` | Fits CPU; MPNet is a stronger dense baseline in a separate run |
+| Datasets | BEIR list in `AVAILABLE_DATASETS` | Editable in `src/config.py` |
+| Batch size | 32 | Keeps memory reasonable |
+| LLM | Not in this repo | I only evaluate retrieval |
+| ColBERT | Not implemented | Would want a GPU; dense + BM25 + hybrid is enough for my scope |
 
 ## References
-
-- Lewis et al. (2020) — RAG: Retrieval-Augmented Generation
+- Lewis et al. (2020) — RAG
 - Karpukhin et al. (2020) — Dense Passage Retrieval
 - Robertson & Zaragoza (2009) — BM25
-- BEIR benchmark — https://github.com/beir-cellar/beir
+- BEIR — https://github.com/beir-cellar/beir
