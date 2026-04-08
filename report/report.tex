@@ -105,6 +105,7 @@ with $k = 60$. This combines semantic and lexical signals without score calibrat
 and NDCG@$k$ is DCG@$k$/IDCG@$k$.
 
 \textbf{Implementation.} I used Python with sentence-transformers, rank-bm25, and ir-datasets. Retrieval depth is fixed at top-$K=100$; metrics are computed at $k=\{1,5,10,100\}$. I compare two completed full-grid runs: MiniLM (run ID 20260328\_191443) and MPNet (run ID 20260406\_235803). For tractability, the query cap uses the first 200 valid queries returned by the dataset loader for each dataset. This report evaluates retrieval quality only; end-to-end LLM answer-generation quality is outside scope.
+Relative to the initial proposal, I narrowed evaluation to retrieval-only quality on BEIR and used MiniLM/MPNet as the dense-model comparison under available compute and time constraints.
 
 \subsection{Results: Method Comparison}
 \tabref{tab:nfcorpus} and \tabref{tab:scifact} summarize results on nfcorpus and scifact with original (unchunked) documents from run 20260328\_191443.
@@ -234,7 +235,7 @@ Future work could explicitly log the active dense model in per-run metadata to s
 
 \section{Conclusion}
 \subsection{Best Technique}
-Hybrid retrieval via Reciprocal Rank Fusion consistently outperforms dense-only and sparse-only baselines on key datasets in this study. On original-document runs, hybrid reaches MRR 0.591 on nfcorpus (vs.\ 0.559 sparse, 0.544 dense) and 0.676 on scifact (vs.\ 0.652 sparse, 0.606 dense). For practitioners, hybrid is the strongest default when both dense and sparse components are available.
+Hybrid retrieval via Reciprocal Rank Fusion is the strongest overall default in this study. On original-document runs, hybrid reaches MRR 0.591 on nfcorpus (vs.\ 0.559 sparse, 0.544 dense) and 0.676 on scifact (vs.\ 0.652 sparse, 0.606 dense). However, appendix-level results show dataset-specific exceptions (e.g., arguana and fiqa) where dense can be best. For practitioners, hybrid is a robust default, but final method choice should remain dataset-dependent.
 
 \subsection{Is the Problem Solved?}
 No. Retrieval remains a bottleneck. Even under the best settings here, many relevant items are still missed and performance varies by dataset and chunk configuration. Domain shift, long documents, and multi-hop reasoning remain challenging. Chunk size and granularity should be tuned per application.
