@@ -18,6 +18,8 @@ source venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
+This matches `experiments/run_grid.py`. The scripts in `gpu/` need a CUDA build of PyTorch instead. See `gpu/README.md`: `gpu/run_grid.py` still imports the retrievers from `src/retrieval/`, so those three files only reproduce `20260406_235803` when they occupy `experiments/run_grid.py`, `src/retrieval/dense.py`, and `src/retrieval/hybrid.py`.
+
 ### 3. Install Dependencies
 ```bash
 pip install -r requirements.txt
@@ -34,10 +36,23 @@ project/
 ├── README.md                # This file
 ├── requirements.txt         # Python dependencies
 │
-├── report/                  # LaTeX report (Final Report)
-│   ├── report.tex           # Main report source
-│   ├── report.bib           # Bibliography
-│   └── jmlr2e.sty           # JMLR style (copy from project root if needed)
+├── gpu/                     # CUDA copies of the grid runner and dense/hybrid retrievers
+│   ├── README.md
+│   ├── run_grid.py
+│   ├── dense.py
+│   └── hybrid.py
+│
+├── report_submitted/        # Overleaf source and graded Report.pdf
+│   ├── report.tex           # Submitted source (calls the GPU run MPNet)
+│   ├── report.bib
+│   ├── jmlr2e.sty
+│   ├── Report.pdf
+│   └── figures/
+│
+├── report_corrected/        # Same paper with CPU/GPU labels corrected
+│   ├── report.tex
+│   ├── report.bib
+│   └── jmlr2e.sty
 │
 ├── src/                     # Source code
 │   ├── __init__.py
@@ -68,7 +83,7 @@ project/
 │
 ├── results/
 │   ├── metrics/             # Summaries from run_experiments / run_all
-│   ├── grid_runs/           # Timestamped grid outputs from run_grid.py
+│   ├── grid_runs/           # Three completed grids; see README.md in that folder
 │   └── comparisons/         # Output from run_compare.py
 │
 └── notebooks/
@@ -104,12 +119,12 @@ python experiments/run_all.py
 ```
 
 ### Compare two grid runs (`run_compare.py`)
-After I have two full grids (e.g. two dense encoders), I compare them with:
+After I have two full grids, I compare them with:
 ```bash
 python experiments/run_compare.py
 ```
 
-With no flags it reads `RUN_A_ID` and `RUN_B_ID` from the top of `run_compare.py` and writes CSVs under `results/comparisons/<RUN_A_ID>_vs_<RUN_B_ID>/`. If the second run isn’t there yet, the script can fabricate a placeholder folder for testing the pipeline—don’t use that for real numbers.
+With no flags it reads `RUN_A_ID` and `RUN_B_ID` from the top of `run_compare.py` and writes CSVs under `results/comparisons/<RUN_A_ID>_vs_<RUN_B_ID>/`. Those constants are the CPU MiniLM run `20260328_191443` and the GPU MiniLM run `20260406_235803`. If the second run isn’t there yet, the script can fabricate a placeholder folder for testing the pipeline—don’t use that for real numbers.
 
 ### Figures
 Plots from `run_experiments` / `run_all` outputs:
@@ -131,7 +146,7 @@ I didn’t wire everything through argparse. To switch the dense model or point 
 
 | Goal | File |
 |------|------|
-| Dense model for **`run_grid.py`** (MiniLM vs MPNet, etc.) | `experiments/run_grid.py` — `DEFAULT_DENSE_MODEL` (comment/uncomment as marked). This overrides the grid run separately from `config.py`. |
+| Dense model for **`run_grid.py`** | `experiments/run_grid.py` — `DEFAULT_DENSE_MODEL`. Active value is MiniLM. `all-mpnet-base-v2` is the commented alternative. This overrides the grid run separately from `config.py`. |
 | Dense model for **`run_experiments` / `run_all`** | `src/config.py` — `DEFAULT_DENSE_MODEL` |
 | Which grid run to plot | `scripts/generate_figures_grid.py` — `PREFERRED_RUN_ID` |
 | Which two grids to compare | `experiments/run_compare.py` — `RUN_A_ID`, `RUN_B_ID` |
@@ -166,14 +181,25 @@ python -m src.run_experiments \
 
 If you try huge BEIR sets, lower `--max_queries` while testing.
 
-## Design Choices (CPU)
+## Completed grids
+Labels for the three folders under `results/grid_runs/` are in `results/grid_runs/README.md`.
+
+| Run | What it is |
+|-----|------------|
+| `20260328_191443` | MiniLM on CPU. No `device` field. |
+| `20260401_193340` | Heavier encoder on CPU. Sparse metrics match the MiniLM CPU run. Dense and hybrid do not. The result files do not store the model name. |
+| `20260406_235803` | Same MiniLM grid on GPU (`device: cuda`, `batch_size` 128 for dense and hybrid). Quality matches `20260328_191443`. |
+
+`experiments/run_grid.py` still defaults to MiniLM. `all-mpnet-base-v2` is only a comment in that file. Switching it and running the grid again is how a new encoder run is started. It does not describe `20260406_235803`.
+
+## Design Choices (CPU pipeline)
 | Piece | What I used | Why |
 |-------|-------------|-----|
-| Embeddings | Default MiniLM; second full grid with MPNet if I change `DEFAULT_DENSE_MODEL` in `run_grid.py` | Fits CPU; MPNet is a stronger dense baseline in a separate run |
-| Datasets | BEIR list in `AVAILABLE_DATASETS` | Editable in `src/config.py` |
-| Batch size | 32 | Keeps memory reasonable |
+| Embeddings | MiniLM for the CPU baseline and the GPU rerun. One heavier-encoder CPU grid is `20260401_193340`. | MiniLM is the fast default. The heavier run is the encoder comparison; the GPU run is not. |
+| Datasets | `nfcorpus`, `fiqa`, `scifact`, `arguana`, `dbpedia-entity` | The list in `src/config.py` |
+| Batch size | 32 on the CPU scripts; 128 on the GPU run | 32 keeps CPU memory reasonable. The GPU metadata records 128. |
 | LLM | Not in this repo | I only evaluate retrieval |
-| ColBERT | Not implemented | Would want a GPU; dense + BM25 + hybrid is enough for my scope |
+| ColBERT | Not implemented | Late-interaction retrieval was outside this scope |
 
 ## References
 - Lewis et al. (2020) — RAG
