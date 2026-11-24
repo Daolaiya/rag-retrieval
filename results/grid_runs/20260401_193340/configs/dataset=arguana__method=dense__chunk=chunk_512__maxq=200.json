@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "run_id": "20260401_193340",
+    "dataset": "arguana",
+    "method": "dense",
+    "chunk_size": "chunk_512",
+    "max_queries": 200,
+    "n_docs": 8744,
+    "n_queries": 200,
+    "top_k": 100,
+    "eval_top_k": [
+      1,
+      5,
+      10,
+      100
+    ],
+    "retrieval_time_seconds": 370.419,
+    "config_elapsed_seconds": 371.12
+  },
+  "metrics": {
+    "n_queries": 200,
+    "MRR": 0.2345540390450012,
+    "Recall@1": 0.03,
+    "NDCG@1": 0.03,
+    "Recall@5": 0.46,
+    "NDCG@5": 0.2523047561156626,
+    "Recall@10": 0.715,
+    "NDCG@10": 0.33590433483290966,
+    "Recall@100": 0.985,
+    "NDCG@100": 0.3997046191767397
+  }
+}

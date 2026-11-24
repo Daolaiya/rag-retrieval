@@ -52,7 +52,7 @@ Ottawa, ON, Canada}
 \maketitle
 
 \begin{abstract}
-Retrieval-Augmented Generation (RAG) augments large language models with external knowledge by retrieving relevant passages before generation. The retrieval strategy---dense, sparse, or hybrid---strongly affects retrieval quality, which I use as a proxy for downstream grounding quality. I empirically compare these strategies on five BEIR datasets (nfcorpus, fiqa, scifact, arguana, dbpedia-entity), with chunk granularity variation (original, 128, 256, 512). I run two full grids that differ by dense encoder backbone (all-MiniLM-L6-v2 vs all-mpnet-base-v2) and compare retrieval metrics (MRR, Recall@k, NDCG@k). Hybrid retrieval via Reciprocal Rank Fusion is the strongest overall performer. Across these runs, dense-encoder swapping has negligible effect on aggregate retrieval quality, while chunk size and retrieval-family choice remain the dominant factors. The code is available \href{https://github.com/Daolaiya/rag-retrieval}{\textcolor{blue}{here on GitHub}}.
+Retrieval-Augmented Generation (RAG) augments large language models with external knowledge by retrieving relevant passages before generation. The retrieval strategy---dense, sparse, or hybrid---strongly affects retrieval quality, which I use as a proxy for downstream grounding quality. I empirically compare these strategies on five BEIR datasets (nfcorpus, fiqa, scifact, arguana, dbpedia-entity), with chunk granularity variation (original, 128, 256, 512). I run two full grids with the same dense encoder (all-MiniLM-L6-v2), one on CPU and one on GPU, and compare retrieval metrics (MRR, Recall@k, NDCG@k). Hybrid retrieval via Reciprocal Rank Fusion is the strongest overall performer. Across these runs, moving that encoder from CPU to GPU has negligible effect on aggregate retrieval quality, while chunk size and retrieval-family choice remain the dominant factors. The code is available \href{https://github.com/Daolaiya/rag-retrieval}{\textcolor{blue}{here on GitHub}}.
 \end{abstract}
 
 \begin{keywords}
@@ -81,7 +81,7 @@ RAG is deployed in enterprise knowledge bases, customer support systems, and res
 \subsection{Techniques Chosen and Rationale}
 I implement and compare three retrieval strategies:
 
-\textbf{(1) Dense retrieval} using sentence-transformers \citep{reimers2019sentencebert}. I evaluate two encoder backbones in separate full-grid runs: all-MiniLM-L6-v2 and all-mpnet-base-v2. Documents and queries are encoded into dense vectors; retrieval uses cosine similarity.
+\textbf{(1) Dense retrieval} using sentence-transformers \citep{reimers2019sentencebert}. The grids compared below use one encoder, all-MiniLM-L6-v2, run once on CPU and once on GPU. Documents and queries are encoded into dense vectors; retrieval uses cosine similarity.
 
 \textbf{(2) Sparse retrieval} using BM25 with standard parameters ($k_1 = 1.5$, $b = 0.75$). Tokenization is word-based. No learned components; purely lexical.
 
@@ -104,8 +104,8 @@ with $k = 60$. This combines semantic and lexical signals without score calibrat
 \]
 and NDCG@$k$ is DCG@$k$/IDCG@$k$.
 
-\textbf{Implementation.} I used Python with sentence-transformers, rank-bm25, and ir-datasets. Retrieval depth is fixed at top-$K=100$; metrics are computed at $k=\{1,5,10,100\}$. I compare two completed full-grid runs: MiniLM (run ID 20260328\_191443) and MPNet (run ID 20260406\_235803). For tractability, the query cap uses the first 200 valid queries returned by the dataset loader for each dataset. This report evaluates retrieval quality only; end-to-end LLM answer-generation quality is outside scope.
-Relative to the initial proposal, I narrowed evaluation to retrieval-only quality on BEIR and used MiniLM/MPNet as the dense-model comparison under available compute and time constraints.
+\textbf{Implementation.} I used Python with sentence-transformers, rank-bm25, and ir-datasets. Retrieval depth is fixed at top-$K=100$; metrics are computed at $k=\{1,5,10,100\}$. I compare two completed full-grid runs of all-MiniLM-L6-v2: CPU (run ID 20260328\_191443) and GPU (run ID 20260406\_235803). For tractability, the query cap uses the first 200 valid queries returned by the dataset loader for each dataset. This report evaluates retrieval quality only; end-to-end LLM answer-generation quality is outside scope.
+Relative to the initial proposal, I narrowed evaluation to retrieval-only quality on BEIR. The cross-run comparison below is a CPU versus GPU rerun of MiniLM, not a second encoder. A heavier-encoder CPU grid (run ID 20260401\_193340) is not included in these tables.
 
 \subsection{Results: Method Comparison}
 \tabref{tab:nfcorpus} and \tabref{tab:scifact} summarize results on nfcorpus and scifact with original (unchunked) documents from run 20260328\_191443.
@@ -140,7 +140,7 @@ Hybrid & \textbf{0.676} & \textbf{0.544} & \textbf{0.777} & \textbf{0.828} & \te
 \end{tabular}
 \end{table}
 
-Provenance note: \tabref{tab:nfcorpus}, \tabref{tab:scifact}, and \tabref{tab:chunk} use run 20260328\_191443 values; most diagnostic figures in this report are from run 20260406\_235803. This is intentional because the cross-run quality deltas are minimal (\tabref{tab:embed_compare}), while latency is not compared across hardware environments.
+Provenance note: \tabref{tab:nfcorpus}, \tabref{tab:scifact}, and \tabref{tab:chunk} use the CPU MiniLM run 20260328\_191443; most diagnostic figures in this report are from the GPU MiniLM run 20260406\_235803. Both runs use the same encoder. The cross-run quality deltas are minimal (\tabref{tab:embed_compare}), while latency is not compared across hardware environments.
 
 \textbf{Findings.} Hybrid retrieval achieves the strongest retrieval quality on both showcased datasets. On nfcorpus, hybrid MRR is 0.591 (vs.\ 0.559 sparse, 0.544 dense). On scifact, hybrid MRR is 0.676 (vs.\ 0.652 sparse, 0.606 dense). However, the full-dataset view (\appref{app:dataset_level}) also shows exceptions (e.g., arguana and fiqa) where dense ranks highest, so hybrid should be interpreted as the strongest overall default rather than a universal winner on every dataset slice. Sparse remains the fastest on this CPU-style run.
 
@@ -193,17 +193,17 @@ Method & Chunk & MRR & R@5 & R@10 & NDCG@10 \\
 
 \figref{fig:chunk_nfcorpus} illustrates the granularity sensitivity discussed in \tabref{tab:chunk}: method rankings and absolute scores vary with chunking choice.
 
-\subsection{Results: MiniLM vs MPNet Comparison}
-\tabref{tab:embed_compare} compares aggregate quality metrics between the two completed full-grid runs, averaged across all datasets and chunk settings for each retrieval method.
+\subsection{Results: CPU vs GPU (Same MiniLM Encoder)}
+\tabref{tab:embed_compare} compares aggregate quality metrics between the CPU and GPU MiniLM grids, averaged across all datasets and chunk settings for each retrieval method.
 
 \begin{table}[htbp]
 \centering
-\caption{Embedding model comparison across all datasets/chunks (MiniLM = run A = 20260328\_191443, MPNet = run B = 20260406\_235803).}
+\caption{Same-encoder comparison across all datasets/chunks (CPU MiniLM = run A = 20260328\_191443, GPU MiniLM = run B = 20260406\_235803).}
 \label{tab:embed_compare}
 \resizebox{\linewidth}{!}{
 \begin{tabular}{lcccccc}
 \toprule
-Method & MiniLM MRR & MPNet MRR & MiniLM R@10 & MPNet R@10 & MiniLM NDCG@10 & MPNet NDCG@10 \\
+Method & CPU MRR & GPU MRR & CPU R@10 & GPU R@10 & CPU NDCG@10 & GPU NDCG@10 \\
 \midrule
 Dense  & \textbf{0.51067} & 0.51059 & 0.39367 & 0.39367 & \textbf{0.37370} & 0.37369 \\
 Sparse & \textbf{0.48840} & 0.48836 & \textbf{0.33963} & 0.33963 & \textbf{0.32335} & 0.32334 \\
@@ -213,7 +213,7 @@ Hybrid & 0.53337 & \textbf{0.53347} & \textbf{0.38356} & 0.38355 & 0.37583 & \te
 }
 \end{table}
 
-\textbf{Findings.} Aggregate differences between MiniLM and MPNet are minimal in this experimental setup (typically around $10^{-4}$). The dominant gains come from retrieval-family choice (hybrid vs single-family) and chunking configuration rather than encoder swap alone.
+\textbf{Findings.} Aggregate differences between the CPU and GPU MiniLM runs are minimal in this experimental setup (typically around $10^{-4}$). The dominant gains come from retrieval-family choice (hybrid vs single-family) and chunking configuration. These runs do not measure an encoder swap.
 Because the two runs were executed in different hardware environments, I use this section for quality-metric comparison only and avoid cross-run latency claims.
 Future work could explicitly log the active dense model in per-run metadata to strengthen provenance and reproducibility.
 
@@ -224,9 +224,9 @@ Future work could explicitly log the active dense model in per-run metadata to s
 \label{fig:heatmap_mrr}
 \end{figure}
 
-\figref{fig:heatmap_mrr} provides a compact cross-dataset summary and supports the conclusion that retrieval-family choice (especially hybrid vs single-family) has larger practical impact than swapping between the two dense backbones in this setup.
+\figref{fig:heatmap_mrr} provides a compact cross-dataset summary and supports the conclusion that retrieval-family choice (especially hybrid vs single-family) has larger practical impact than the CPU versus GPU rerun of the same encoder.
 
-\textbf{Global summary across parameters.} I ran a comprehensive sweep across all combinations of 5 datasets, 3 methods, 4 chunk settings, and fixed retrieval metrics. Due to the 8-page limit, the main body presents representative slices (\tabref{tab:nfcorpus}, \tabref{tab:scifact}, \tabref{tab:chunk}) plus the aggregate embedding-model comparison (\tabref{tab:embed_compare}). Full dataset-level and chunk-level comparisons are provided in \appref{app:dataset_level} and \appref{app:chunk_level}, with additional diagnostics in \appref{app:extra_figs}.
+\textbf{Global summary across parameters.} I ran a comprehensive sweep across all combinations of 5 datasets, 3 methods, 4 chunk settings, and fixed retrieval metrics. Due to the 8-page limit, the main body presents representative slices (\tabref{tab:nfcorpus}, \tabref{tab:scifact}, \tabref{tab:chunk}) plus the aggregate CPU-versus-GPU comparison (\tabref{tab:embed_compare}). Full dataset-level and chunk-level comparisons are provided in \appref{app:dataset_level} and \appref{app:chunk_level}, with additional diagnostics in \appref{app:extra_figs}.
 
 \subsection{Complexity and Ease of Use}
 \textbf{Computational complexity.} Sparse retrieval uses lexical indexing and ranking; dense retrieval adds neural embedding computation and vector similarity search. Hybrid adds rank-fusion overhead on top of both retrieval passes.
@@ -246,13 +246,13 @@ For future research work, I could look into: (1) end-to-end evaluation with an L
 % \acks{No external funding. No competing interests.}
 
 \appendix
-\section{Dataset-Level MiniLM vs MPNet Comparison}
+\section{Dataset-Level CPU vs GPU Comparison}
 \label{app:dataset_level}
-This appendix reports method-level means per dataset using the same comparison pipeline outputs used in the main text. It supports the claim that MiniLM vs MPNet differences remain very small across the full parameter sweep.
+This appendix reports method-level means per dataset using the same comparison pipeline outputs used in the main text. It supports the claim that CPU vs GPU MiniLM differences remain very small across the full parameter sweep.
 
 \begin{table}[H]
 \centering
-\caption{Per-dataset, per-method MiniLM vs MPNet comparison (MRR and Recall@10, rounded to 3 decimals).}
+\caption{Per-dataset, per-method CPU vs GPU MiniLM comparison (MRR and Recall@10, rounded to 3 decimals). Run A is 20260328\_191443 and run B is 20260406\_235803.}
 \label{tab:appendix_dataset_level}
 \scriptsize
 \begin{tabular}{llrrrrrr}
@@ -280,11 +280,11 @@ scifact & hybrid & 0.683 & 0.683 &  0.000 & 0.781 & 0.781 &  0.000 \\
 
 \section{Chunk-Level Comparison (Representative Dataset)}
 \label{app:chunk_level}
-This table shows the full chunk-level MiniLM vs MPNet comparison for nfcorpus (all methods and all chunk settings), illustrating how non-displayed parameters are tracked and compared.
+This table shows the full chunk-level CPU vs GPU MiniLM comparison for nfcorpus (all methods and all chunk settings), illustrating how non-displayed parameters are tracked and compared.
 
 \begin{table}[H]
 \centering
-\caption{Chunk-level nfcorpus MiniLM vs MPNet comparison (MRR and Recall@10, rounded to 3 decimals).}
+\caption{Chunk-level nfcorpus CPU vs GPU MiniLM comparison (MRR and Recall@10, rounded to 3 decimals). Run A is 20260328\_191443 and run B is 20260406\_235803.}
 \label{tab:appendix_chunk_level}
 \scriptsize
 \begin{tabular}{llrrrrrr}

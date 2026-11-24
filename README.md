@@ -1,9 +1,7 @@
 # COMP5801 RAG Retrieval Comparison Project
 **Option A: Empirical Evaluation** — I compare dense, sparse, and hybrid retrieval for RAG-style setups and look at how chunk size / granularity changes metrics.
 
-Everything runs on **CPU** (no GPU assumed).
-
-Run commands from this folder (`project/`).
+The scripts in `experiments/` and `src/` are the CPU pipeline. `gpu/` is the CUDA variant of the grid runner; it produced `results/grid_runs/20260406_235803` (MiniLM on GPU, not a second encoder). Run commands from this folder (`project/`).
 
 ## Environment Setup
 ### 1. Create Virtual Environment (Recommended)
@@ -159,16 +157,7 @@ python -m src.run_experiments \
 | `results/comparisons/<A>_vs_<B>/` | `experiments/run_compare.py` |
 
 ## Report
-Source is `report/report.tex`. Local build:
-```bash
-cd report
-pdflatex report
-bibtex report
-pdflatex report
-pdflatex report
-```
-
-I used Overleaf for the PDF: upload `report.tex`, `report.bib`, and `jmlr2e.sty` (copy `jmlr2e.sty` from the project root if needed).
+`report_submitted/` is the Overleaf source and the graded `Report.pdf`. That `.tex` calls the GPU run MPNet. `report_corrected/report.tex` is the same paper with those labels corrected. The figure files for a local build are in `report_submitted/figures/`.
 
 ## Dataset Notes
 - **nfcorpus**: ~3.6k docs, ~323 queries — quick on CPU

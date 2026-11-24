@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "run_id": "20260401_193340",
+    "dataset": "scifact",
+    "method": "hybrid",
+    "chunk_size": "chunk_512",
+    "max_queries": 200,
+    "n_docs": 5233,
+    "n_queries": 200,
+    "top_k": 100,
+    "eval_top_k": [
+      1,
+      5,
+      10,
+      100
+    ],
+    "retrieval_time_seconds": 365.539,
+    "config_elapsed_seconds": 366.477
+  },
+  "metrics": {
+    "n_queries": 200,
+    "MRR": 0.6895587680497732,
+    "Recall@1": 0.5572499999999999,
+    "NDCG@1": 0.585,
+    "Recall@5": 0.7888333333333333,
+    "NDCG@5": 0.697680856885623,
+    "Recall@10": 0.8423333333333334,
+    "NDCG@10": 0.7160522763114203,
+    "Recall@100": 0.9740000000000001,
+    "NDCG@100": 0.7470422887792755
+  }
+}
